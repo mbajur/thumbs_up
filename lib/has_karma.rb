@@ -30,10 +30,33 @@ module ThumbsUp #:nodoc:
     module InstanceMethods
       def karma(options = {})
         self.class.base_class.karmic_objects.collect do |object, attr|
-          v = object.where(["#{Vote.table_name}.vote = ?", true]).where(["#{self.class.base_class.table_name}.#{self.class.base_class.primary_key} = ?", self.id])
-          v = v.joins("INNER JOIN #{Vote.table_name} ON #{Vote.table_name}.voteable_type = '#{object.to_s}' AND #{Vote.table_name}.voteable_id = #{object.table_name}.#{object.primary_key}")
-          v = v.joins("INNER JOIN #{self.class.base_class.table_name} ON #{self.class.base_class.table_name}.#{self.class.base_class.primary_key} = #{object.table_name}.#{attr[0]}")
-          (v.count.to_f * attr[1]).round
+          sum_for     = 0
+          sum_against = 0
+
+          # Backwards compatibile
+          if attr[1].is_a?(Array)
+            multipliers = attr[1]
+          else
+            multipliers['for'] = attr[1]
+          end
+          
+          if multipliers['for'].present?
+            v = object.where(["#{self.class.base_class.table_name}.#{self.class.base_class.primary_key} = ?", self.id])
+            v = v.where(["#{Vote.table_name}.vote = ?", true])
+            v = v.joins("INNER JOIN #{Vote.table_name} ON #{Vote.table_name}.voteable_type = '#{object.to_s}' AND #{Vote.table_name}.voteable_id = #{object.table_name}.#{object.primary_key}")
+            v = v.joins("INNER JOIN #{self.class.base_class.table_name} ON #{self.class.base_class.table_name}.#{self.class.base_class.primary_key} = #{object.table_name}.#{attr[0]}")
+            sum_for = (v.count.to_f * multipliers['for']).round
+          end
+          
+          if multipliers['against'].present?
+            v = object.where(["#{self.class.base_class.table_name}.#{self.class.base_class.primary_key} = ?", self.id])
+            v = v.where(["#{Vote.table_name}.vote = ?", false])
+            v = v.joins("INNER JOIN #{Vote.table_name} ON #{Vote.table_name}.voteable_type = '#{object.to_s}' AND #{Vote.table_name}.voteable_id = #{object.table_name}.#{object.primary_key}")
+            v = v.joins("INNER JOIN #{self.class.base_class.table_name} ON #{self.class.base_class.table_name}.#{self.class.base_class.primary_key} = #{object.table_name}.#{attr[0]}")
+            sum_against = (v.count.to_f * multipliers['against']).round
+          end
+
+          sum_for + sum_against
         end.sum
       end
     end
