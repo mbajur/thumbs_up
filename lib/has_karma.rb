@@ -30,8 +30,8 @@ module ThumbsUp #:nodoc:
     module InstanceMethods
       def karma(options = {})
         self.class.base_class.karmic_objects.collect do |object, attr|
-          sum_for     = 0
-          sum_against = 0
+          sum_for, sum_against = 0
+          multipliers          = []
 
           # Backwards compatibile
           if attr[1].is_a?(Array)
